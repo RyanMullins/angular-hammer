@@ -3,11 +3,10 @@
 // Copyright (c) 2014 Ryan S Mullins <ryan@ryanmullins.org>
 // Licensed under the MIT Software License
 
-(function () {
+(function (window, angular, Hammer, undefined) {
   'use strict';
 
   // Checking to make sure Hammer and Angular are defined
-  var angular, Hammer;
 
   if (typeof angular === 'undefined') {
     if (typeof require !== 'undefined' && require) {
@@ -24,11 +23,7 @@
       try {
         Hammer = require('hammerjs');
       } catch (e) {
-        try {
-          Hammer = require('hammer');
-        } catch (e) {
-          return console.log('ERROR: Angular Hammer could not require() a reference to Hammer');
-        }
+        return console.log('ERROR: Angular Hammer could not require() a reference to Hammer');
       }
     } else if (typeof window.Hammer !== 'undefined') {
       Hammer = window.Hammer;
@@ -351,4 +346,4 @@
 
     return directions;
   }
-})();
+})(window, window.angular, window.Hammer);
