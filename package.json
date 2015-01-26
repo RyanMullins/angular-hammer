@@ -26,10 +26,13 @@
     "url": "https://github.com/RyanMullins/angular-hammer/issues"
   },
   "homepage": "http://ryanmullins.github.io/angular-hammer/",
-  "devDependencies": {
+  "dependencies" : {
     "angular": ">=1.2.0",
-    "browserify": "^8.0.3",
     "browserify-shim": "^3.8.2",
+    "hammerjs": ">=2.0.0"
+  },
+  "devDependencies": {
+    "browserify": "^8.0.3",
     "finalhandler": "^0.3.2",
     "grunt": "^0.4.5",
     "grunt-browserify": "^3.2.1",
@@ -41,7 +44,6 @@
     "grunt-jsdoc": "^0.5.7",
     "grunt-nodemon": "^0.3.0",
     "grunt-webpack": "^1.0.8",
-    "hammerjs": ">=2.0.0",
     "serve-static": "^1.7.1",
     "uglify-save-license": "^0.4.1",
     "webpack": "^1.4.15",
