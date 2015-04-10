@@ -122,8 +122,8 @@
 
             var hammer = element.data('hammer'),
                 managerOpts = angular.fromJson(attrs.hmManagerOptions),
-                recognizerOpts = angular.fromJson(attrs.hmRecognizerOptions);
-
+                recognizerOpts = angular.fromJson(attrs.hmRecognizerOptions),
+                payload = attrs.hmPayload;
 
             // Check for a manager, make one if needed and destroy it when
             // the scope is destroyed
@@ -166,7 +166,7 @@
                     var fn = handlerExpr(scope, {'$event':event});
 
                     if (typeof fn === 'function') {
-                      fn.call(scope, event);
+                      fn.call(scope, event, payload);
                     }
                   }
                 };
