@@ -87,6 +87,35 @@
    */
   angular.module('hmTouchEvents', []);
 
+
+  /*
+   * hmTouchEventsDefault provider to set any default options
+   * setDefaultRecognizerOptions is to set any default recognizer options for a particular event type.
+   */
+  angular
+  .module('hmTouchEvents')
+  .provider('hmTouchEventsDefault', function() {
+
+    var defaultRecognizerOptions = {};
+
+    this.$get = function () {
+      return {
+        getDefaultRecognizer: function(eventType) {
+          return defaultRecognizerOptions[eventType] || null;
+        }
+      };
+    };
+
+    /**
+     * @param {String} type set an option for an <eventName>
+     * @param {Object} recognizer options to be set for the <eventName>
+     * @return None
+     */
+    this.setDefaultRecognizerOptions = function(type, options) {
+      defaultRecognizerOptions[type] = options;
+    };
+  });
+
   /**
    * Iterates through each gesture type mapping and creates a directive for
    * each of the
@@ -100,7 +129,7 @@
         eventName = directive[1];
 
     angular.module('hmTouchEvents')
-      .directive(directiveName, ['$parse', '$window', function ($parse, $window) {
+      .directive(directiveName, ['$parse', '$window', 'hmTouchEventsDefault', function ($parse, $window, hmTouchEventsDefault) {
         return {
           'restrict' : 'A',
           'link' : function (scope, element, attrs) {
@@ -122,8 +151,7 @@
 
             var hammer = element.data('hammer'),
                 managerOpts = angular.fromJson(attrs.hmManagerOptions),
-                recognizerOpts = angular.fromJson(attrs.hmRecognizerOptions);
-
+                recognizerOpts = hmTouchEventsDefault.getDefaultRecognizer(directiveName) || angular.fromJson(attrs.hmRecognizerOptions);
 
             // Check for a manager, make one if needed and destroy it when
             // the scope is destroyed

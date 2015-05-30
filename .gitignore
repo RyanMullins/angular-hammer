@@ -11,6 +11,7 @@ npm-debug.log
 
 examples/raw/angular*
 examples/raw/hammer*
+examples/lib
 
 examples/browserify/angular*
 examples/browserify/hammer*

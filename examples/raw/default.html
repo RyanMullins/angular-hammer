@@ -40,6 +40,13 @@
        * @ngInject
        */
       angular.module('hmTime', ['hmTouchEvents'])
+        .config(function(hmTouchEventsDefaultProvider) {
+          hmTouchEventsDefaultProvider
+          .setDefaultRecognizerOptions('hmTap', {
+            threshold: 12,
+            time: 800
+          });
+        })
         .controller('hmCtrl', function ($scope) {
           $scope.eventType = "No events yet";
           $scope.onHammer = function onHammer (event) {
