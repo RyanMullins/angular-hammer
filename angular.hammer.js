@@ -6,36 +6,6 @@
 (function (window, angular, Hammer) {
   'use strict';
 
-  // Checking to make sure Hammer and Angular are defined
-
-  if (typeof angular === 'undefined') {
-    if (typeof require !== 'undefined' && require) {
-      try {
-        angular = require('angular');
-      } catch (e) {
-        return console.log('ERROR: Angular Hammer could not require() a reference to angular');
-      }
-    } else if (typeof window.angular !== 'undefined') {
-      angular = window.angular;
-    } else {
-      return console.log('ERROR: Angular Hammer could not find or require() a reference to angular');
-    }
-  }
-
-  if (typeof Hammer === 'undefined') {
-    if (typeof require !== 'undefined' && require) {
-      try {
-        Hammer = require('hammerjs');
-      } catch (e) {
-        return console.log('ERROR: Angular Hammer could not require() a reference to Hammer');
-      }
-    } else if (typeof window.Hammer !== 'undefined') {
-      Hammer = window.Hammer;
-    } else {
-      return console.log('ERROR: Angular Hammer could not find or require() a reference to Hammer');
-    }
-  }
-
   /**
    * Mapping of the gesture event names with the Angular attribute directive
    * names. Follows the form: <directiveName>:<eventName>.
@@ -85,7 +55,130 @@
    * @requires angular
    * @requires hammer
    */
-  angular.module('hmTouchEvents', []);
+  var NAME = "hmTouchEvents";
+  var hmTouchEvents = angular.module(NAME, []);
+
+  /**
+   * Provides a common interface for configuring global manager and recognizer
+   * options. Allows things like tap duration etc to be defaulted globally and
+   * overridden on a per-directive basis as needed.
+   *
+   * @return {Object} functions to add manager and recognizer options.
+   */
+  hmTouchEvents.provider(NAME, function(){
+
+    var self = this;
+    var defaultRecognizerOpts = false;
+    var recognizerOptsHash = {};
+    var managerOpts = {};
+
+    //
+    // Make use of presets from Hammer.defaults.preset array
+    // in angular-hammer events.
+    //
+    self.applyHammerPresets = function(){
+      //force hammer to extend presets with more info:
+      Hammer(document.createElement("i"));
+      var hammerPresets = Hammer.defaults.preset;
+
+      //add each preset to defaults list so long as there
+      //is associated config with it:
+      angular.forEach(hammerPresets, function(presetArr){
+
+        var data = presetArr[1];
+        if(!data) return;
+        var name = data.event;
+
+        if(!name) throw Error(NAME+"Provider: useHammerPresets: preset event expected by now");
+        recognizerOptsHash[name] = data;
+
+      });
+    }
+
+    //
+    // Add a manager option (key/val to extend or object to set all):
+    //
+    self.addManagerOption = function(name, val){
+      if(typeof name == "object"){
+        angular.extend(managerOpts, name);
+      }
+      else {
+        managerOpts[name] = val;
+      }
+    }
+
+    //
+    // Add a recognizer option (key/val or object with "type" set):
+    //
+    self.addRecognizerOption = function(name, val){
+      if(Array.isArray(name)){
+        for(var i = 0; i < name.length; i++) self.addRecognizerOption(name[i]);
+        return;
+      }
+      if(typeof name == "object") {
+        val = name;
+        name = val.type;
+      }
+      if(typeof val != "object") {
+        throw Error(NAME+"Provider: recognizer value expected to be object");
+      }
+      if(!name){
+        defaultRecognizerOpts = val;
+      } else {
+        recognizerOptsHash[val.type] = val;
+      }
+    }
+
+    // internal helper funcs:
+    function doRecognizerOptsExist(type, arr){
+      for(var i = 0; i < arr.length; i++){
+        if(arr[i].type == type) return true;
+      }
+      return false;
+    }
+    function doDefaultRecognizerOptsExist(arr){
+      for(var i = 0; i < arr.length; i++){
+        if(!arr[i].type) return true;
+      }
+      return false;
+    }
+
+    //provide an interface to this that the hm-* directives use
+    //to extend their recognizer/manager opts.
+    self.$get = function(){
+      return {
+        extendWithDefaultManagerOpts: function(opts){
+          if(typeof opts != "object"){
+            opts = {};
+          }
+          var out = {};
+          for(var name in managerOpts) {
+            if(!opts[name]) opts[name] = angular.copy(managerOpts[name]);
+          }
+          return angular.extend({}, managerOpts, opts);
+        },
+        extendWithDefaultRecognizerOpts: function(opts){
+          if(typeof opts != "object") {
+            opts = [];
+          } else if(!Array.isArray(opts)) {
+            opts = [opts];
+          }
+          //default opts go first if they exist and arent provided:
+          if(defaultRecognizerOpts && !doDefaultRecognizerOptsExist(opts)){
+            opts.unshift(defaultRecognizerOpts);
+          }
+          //other opts get pushed to the end:
+          for(var type in recognizerOptsHash) {
+            if(!doRecognizerOptsExist(type, opts)) {
+              opts.push( angular.copy(recognizerOptsHash[type]) );
+            }
+          }
+          return opts;
+        }
+      };
+    };
+
+  });
 
   /**
    * Iterates through each gesture type mapping and creates a directive for
@@ -99,8 +192,7 @@
         directiveName = directive[0],
         eventName = directive[1];
 
-    angular.module('hmTouchEvents')
-      .directive(directiveName, ['$parse', '$window', function ($parse, $window) {
+    hmTouchEvents.directive(directiveName, ['$parse', '$window', NAME, function ($parse, $window, hmTouchDefaults) {
         return {
           'restrict' : 'A',
           'link' : function (scope, element, attrs) {
@@ -121,9 +213,11 @@
             }
 
             var hammer = element.data('hammer'),
-                managerOpts = scope.$eval(attrs.hmManagerOptions),
-                recognizerOpts = scope.$eval(attrs.hmRecognizerOptions);
-
+                managerOpts = hmTouchDefaults.extendWithDefaultManagerOpts( scope.$eval(attrs.hmManagerOptions) ),
+                //if custom event, dont touch recognizer opts, else extend them with defaults:
+                recognizerOpts = directiveName === "hmCustom"
+                  ? scope.$eval(attrs.hmRecognizerOptions)
+                  : hmTouchDefaults.extendWithDefaultRecognizerOpts( scope.$eval(attrs.hmRecognizerOptions) );
 
             // Check for a manager, make one if needed and destroy it when
             // the scope is destroyed
@@ -171,104 +265,70 @@
                   }
                 };
 
-            // Setting up the recognizers based on the supplied options
+            // If we are not working with a custom event, set up a
+            // default recognizer for this directive's event. This
+            // may be overridden below.
+            if (directiveName !== 'hmCustom') {
 
-            if (angular.isArray(recognizerOpts)) {
-              // The recognizer options may be stored in an array. In this
-              // case, Angular Hammer iterates through the array of options
-              // trying to find an occurrence of the options.type in the event
-              // name. If it find the type in the event name, it applies those
-              // options to the recognizer for events with that name. If it
-              // does not find the type in the event name it moves on.
-
-              angular.forEach(recognizerOpts, function (options) {
-                if (directiveName === 'hmCustom') {
-                  eventName = options.event;
-                } else {
-                  if (!options.type) {
-                    options.type = getRecognizerTypeFromeventName(eventName);
-                  }
-
-                  if (options.event) {
-                    delete options.event;
-                  }
-                }
-
-                if (directiveName === 'hmCustom' ||
-                    eventName.indexOf(options.type) > -1) {
-                  setupRecognizerWithOptions(
-                    hammer,
-                    applyManagerOptions(managerOpts, options),
-                    element);
-                }
-              });
-            } else if (angular.isObject(recognizerOpts)) {
-              // Recognizer options may be stored as an object. In this case,
-              // Angular Hammer checks to make sure that the options type
-              // property is found in the event name. If the options are
-              // designated for this general type of event, Angular Hammer
-              // applies the options directly to the manager instance for
-              // this element.
-
-              if (directiveName === 'hmCustom') {
-                eventName = recognizerOpts.event;
-              } else {
-                  if (!recognizerOpts.type) {
-                    recognizerOpts.type = getRecognizerTypeFromeventName(eventName);
-                  }
-
-                  if (recognizerOpts.event) {
-                    delete recognizerOpts.event;
-                  }
-              }
-
-              if (directiveName === 'hmCustom' ||
-                  eventName.indexOf(recognizerOpts.type) > -1) {
-                setupRecognizerWithOptions(
-                  hammer,
-                  applyManagerOptions(managerOpts, recognizerOpts),
-                  element);
-              }
-            } else if (directiveName !== 'hmCustom') {
-              // If no options are supplied, or the supplied options do not
-              // match any of the above conditions, Angular Hammer sets up
-              // the default options that a manager instantiated using
-              // Hammer() would have.
-
-              recognizerOpts = {
+              var newRecognizerOpts = {
                 'type': getRecognizerTypeFromeventName(eventName)
               };
 
               if (directiveName === 'hmDoubletap') {
-                recognizerOpts.event = eventName;
-                recognizerOpts.taps = 2;
+                newRecognizerOpts.event = eventName;
+                newRecognizerOpts.taps = 2;
 
                 if (hammer.get('tap')) {
-                  recognizerOpts.recognizeWith = 'tap';
+                  newRecognizerOpts.recognizeWith = 'tap';
                 }
               }
 
-              if (recognizerOpts.type.indexOf('pan') > -1 &&
+              if (newRecognizerOpts.type.indexOf('pan') > -1 &&
                   hammer.get('swipe')) {
-                recognizerOpts.recognizeWith = 'swipe';
+                newRecognizerOpts.recognizeWith = 'swipe';
               }
 
-              if (recognizerOpts.type.indexOf('pinch') > -1 &&
+              if (newRecognizerOpts.type.indexOf('pinch') > -1 &&
                   hammer.get('rotate')) {
-                recognizerOpts.recognizeWith = 'rotate';
+                newRecognizerOpts.recognizeWith = 'rotate';
               }
 
               setupRecognizerWithOptions(
                 hammer,
-                applyManagerOptions(managerOpts, recognizerOpts),
+                applyManagerOptions(managerOpts, newRecognizerOpts),
                 element);
-            } else {
-              eventName = null;
-            }
+            } 
 
-            if (eventName) {
+            // iterate over any recognizerOpts that are provided (including
+            // global defaults from the directive and local events supplied
+            // in attribute) and, if any match this event (or this is hmCustom),
+            // apply them on top of any defaults set above.
+            angular.forEach(recognizerOpts, function (options) {
+              if (directiveName === 'hmCustom') {
+                eventName = options.event;
+              } else {
+                if (!options.type) {
+                  options.type = getRecognizerTypeFromeventName(eventName);
+                }
+                if (options.event) {
+                  delete options.event;
+                }
+              }
+              if (directiveName === 'hmCustom' ||
+                  eventName.indexOf(options.type) > -1) {
+                setupRecognizerWithOptions(
+                  hammer,
+                  applyManagerOptions(managerOpts, options),
+                  element);
+              }
+            });
+
+            // dont both creating an event if we're asking for a custom event
+            // and have no recognizers to apply to it.
+            if(directiveName === 'hmCustom' && recognizerOpts.length || directiveName !== 'hmCustom') {
               hammer.on(eventName, handler);
             }
+
           }
         };
       }]);
