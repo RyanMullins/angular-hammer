@@ -121,8 +121,8 @@
             }
 
             var hammer = element.data('hammer'),
-                managerOpts = angular.fromJson(attrs.hmManagerOptions),
-                recognizerOpts = angular.fromJson(attrs.hmRecognizerOptions);
+                managerOpts = scope.$eval(attrs.hmManagerOptions),
+                recognizerOpts = scope.$eval(attrs.hmRecognizerOptions);
 
 
             // Check for a manager, make one if needed and destroy it when
