@@ -273,8 +273,7 @@
         };
       }]);
   });
-
-  hmTouchEvents.directive('hmRequireFailure', [
+  angular.module('hmTouchEvents').directive('hmRequireFailure', [
     '$log', function($log) {
 
       return {
