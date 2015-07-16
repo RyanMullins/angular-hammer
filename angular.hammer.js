@@ -3,33 +3,33 @@
 // Copyright (c) 2014 Ryan S Mullins <ryan@ryanmullins.org>
 // Licensed under the MIT Software License
 
-(function (window, angular, Hammer) {
+(function(window, angular, Hammer) {
   'use strict';
 
   // Checking to make sure Hammer and Angular are defined
 
-  if (typeof angular === 'undefined') {
-    if (typeof require !== 'undefined' && require) {
+  if(typeof angular === 'undefined') {
+    if(typeof require !== 'undefined' && require) {
       try {
         angular = require('angular');
-      } catch (e) {
+      } catch(e) {
         return console.log('ERROR: Angular Hammer could not require() a reference to angular');
       }
-    } else if (typeof window.angular !== 'undefined') {
+    } else if(typeof window.angular !== 'undefined') {
       angular = window.angular;
     } else {
       return console.log('ERROR: Angular Hammer could not find or require() a reference to angular');
     }
   }
 
-  if (typeof Hammer === 'undefined') {
-    if (typeof require !== 'undefined' && require) {
+  if(typeof Hammer === 'undefined') {
+    if(typeof require !== 'undefined' && require) {
       try {
         Hammer = require('hammerjs');
-      } catch (e) {
+      } catch(e) {
         return console.log('ERROR: Angular Hammer could not require() a reference to Hammer');
       }
-    } else if (typeof window.Hammer !== 'undefined') {
+    } else if(typeof window.Hammer !== 'undefined') {
       Hammer = window.Hammer;
     } else {
       return console.log('ERROR: Angular Hammer could not find or require() a reference to Hammer');
@@ -94,186 +94,225 @@
    * @param  {String} type Mapping in the form of <directiveName>:<eventName>
    * @return None
    */
-  angular.forEach(gestureTypes, function (type) {
+  angular.forEach(gestureTypes, function(type) {
     var directive = type.split(':'),
-        directiveName = directive[0],
-        eventName = directive[1];
+      directiveName = directive[0],
+      eventName = directive[1];
 
     angular.module('hmTouchEvents')
-      .directive(directiveName, ['$parse', '$window', function ($parse, $window) {
-        return {
-          'restrict' : 'A',
-          'link' : function (scope, element, attrs) {
+      .directive(directiveName, [
+        '$parse', '$window', function($parse, $window) {
+          return {
+            'restrict': 'A',
+            'link': function(scope, element, attrs) {
 
-            // Check for Hammer and required functionality
-            // If no Hammer, maybe bind tap and doubletap to click and dblclick
+              // Check for Hammer and required functionality
+              // If no Hammer, maybe bind tap and doubletap to click and dblclick
 
-            if (!Hammer || !$window.addEventListener) {
-              if (directiveName === 'hmTap') {
-                element.bind('click', handler);
+              if(!Hammer || !$window.addEventListener) {
+                if(directiveName === 'hmTap') {
+                  element.bind('click', handler);
+                }
+
+                if(directiveName === 'hmDoubletap') {
+                  element.bind('dblclick', handler);
+                }
+
+                return;
               }
 
-              if (directiveName === 'hmDoubletap') {
-                element.bind('dblclick', handler);
-              }
-
-              return;
-            }
-
-            var hammer = element.data('hammer'),
+              var hammer = element.data('hammer'),
                 managerOpts = angular.fromJson(attrs.hmManagerOptions),
                 recognizerOpts = angular.fromJson(attrs.hmRecognizerOptions);
 
+              // Check for a manager, make one if needed and destroy it when
+              // the scope is destroyed
 
-            // Check for a manager, make one if needed and destroy it when
-            // the scope is destroyed
+              if(!hammer) {
+                hammer = new Hammer.Manager(element[0], managerOpts);
+                element.data('hammer', hammer);
+                scope.$on('$destroy', function() {
+                  hammer.destroy();
+                });
+              }
 
-            if (!hammer) {
-              hammer = new Hammer.Manager(element[0], managerOpts);
-              element.data('hammer', hammer);
-              scope.$on('$destroy', function () {
-                hammer.destroy();
-              });
-            }
+              // Instantiate the handler
 
-            // Instantiate the handler
-
-            var handlerName = attrs[directiveName],
+              var handlerName = attrs[directiveName],
                 handlerExpr = $parse(handlerName),
-                handler = function (event) {
+                handler = function(event) {
                   var phase = scope.$root.$$phase,
-                      recognizer = hammer.get(event.type);
+                    recognizer = hammer.get(event.type);
 
                   event.element = element;
 
-                  if (recognizer) {
-                    if (recognizer.options.preventDefault) {
+                  if(recognizer) {
+                    if(recognizer.options.preventDefault) {
                       event.preventDefault();
                     }
 
-                    if (recognizer.options.stopPropagation) {
+                    if(recognizer.options.stopPropagation) {
                       event.srcEvent.stopPropagation();
                     }
                   }
 
-                  if (phase === '$apply' || phase === '$digest') {
+                  if(phase === '$apply' || phase === '$digest') {
                     callHandler();
                   } else {
                     scope.$apply(callHandler);
                   }
 
-                  function callHandler () {
-                    var fn = handlerExpr(scope, {'$event':event});
+                  function callHandler() {
+                    var fn = handlerExpr(scope, {'$event': event});
 
-                    if (fn) {
+                    if(fn) {
                       fn.call(scope, event);
                     }
                   }
                 };
 
-            // Setting up the recognizers based on the supplied options
+              // Setting up the recognizers based on the supplied options
 
-            if (angular.isArray(recognizerOpts)) {
-              // The recognizer options may be stored in an array. In this
-              // case, Angular Hammer iterates through the array of options
-              // trying to find an occurrence of the options.type in the event
-              // name. If it find the type in the event name, it applies those
-              // options to the recognizer for events with that name. If it
-              // does not find the type in the event name it moves on.
+              if(angular.isArray(recognizerOpts)) {
+                // The recognizer options may be stored in an array. In this
+                // case, Angular Hammer iterates through the array of options
+                // trying to find an occurrence of the options.type in the event
+                // name. If it find the type in the event name, it applies those
+                // options to the recognizer for events with that name. If it
+                // does not find the type in the event name it moves on.
 
-              angular.forEach(recognizerOpts, function (options) {
-                if (directiveName === 'hmCustom') {
-                  eventName = options.event;
-                } else {
-                  if (!options.type) {
-                    options.type = getRecognizerTypeFromeventName(eventName);
+                angular.forEach(recognizerOpts, function(options) {
+                  if(directiveName === 'hmCustom') {
+                    eventName = options.event;
+                  } else {
+                    if(!options.type) {
+                      options.type = getRecognizerTypeFromeventName(eventName);
+                    }
+
+                    if(options.event) {
+                      delete options.event;
+                    }
                   }
 
-                  if (options.event) {
-                    delete options.event;
-                  }
-                }
-
-                if (directiveName === 'hmCustom' ||
+                  if(directiveName === 'hmCustom' ||
                     eventName.indexOf(options.type) > -1) {
-                  setupRecognizerWithOptions(
-                    hammer,
-                    applyManagerOptions(managerOpts, options),
-                    element);
-                }
-              });
-            } else if (angular.isObject(recognizerOpts)) {
-              // Recognizer options may be stored as an object. In this case,
-              // Angular Hammer checks to make sure that the options type
-              // property is found in the event name. If the options are
-              // designated for this general type of event, Angular Hammer
-              // applies the options directly to the manager instance for
-              // this element.
+                    setupRecognizerWithOptions(
+                      hammer,
+                      applyManagerOptions(managerOpts, options),
+                      element);
+                  }
+                });
+              } else if(angular.isObject(recognizerOpts)) {
+                // Recognizer options may be stored as an object. In this case,
+                // Angular Hammer checks to make sure that the options type
+                // property is found in the event name. If the options are
+                // designated for this general type of event, Angular Hammer
+                // applies the options directly to the manager instance for
+                // this element.
 
-              if (directiveName === 'hmCustom') {
-                eventName = recognizerOpts.event;
-              } else {
-                  if (!recognizerOpts.type) {
+                if(directiveName === 'hmCustom') {
+                  eventName = recognizerOpts.event;
+                } else {
+                  if(!recognizerOpts.type) {
                     recognizerOpts.type = getRecognizerTypeFromeventName(eventName);
                   }
 
-                  if (recognizerOpts.event) {
+                  if(recognizerOpts.event) {
                     delete recognizerOpts.event;
                   }
-              }
+                }
 
-              if (directiveName === 'hmCustom' ||
+                if(directiveName === 'hmCustom' ||
                   eventName.indexOf(recognizerOpts.type) > -1) {
+                  setupRecognizerWithOptions(
+                    hammer,
+                    applyManagerOptions(managerOpts, recognizerOpts),
+                    element);
+                }
+              } else if(directiveName !== 'hmCustom') {
+                // If no options are supplied, or the supplied options do not
+                // match any of the above conditions, Angular Hammer sets up
+                // the default options that a manager instantiated using
+                // Hammer() would have.
+
+                recognizerOpts = {
+                  'type': getRecognizerTypeFromeventName(eventName)
+                };
+
+                if(directiveName === 'hmDoubletap') {
+                  recognizerOpts.event = eventName;
+                  recognizerOpts.taps = 2;
+
+                  if(hammer.get('tap')) {
+                    recognizerOpts.recognizeWith = 'tap';
+                  }
+                }
+
+                if(recognizerOpts.type.indexOf('pan') > -1 &&
+                  hammer.get('swipe')) {
+                  recognizerOpts.recognizeWith = 'swipe';
+                }
+
+                if(recognizerOpts.type.indexOf('pinch') > -1 &&
+                  hammer.get('rotate')) {
+                  recognizerOpts.recognizeWith = 'rotate';
+                }
+
                 setupRecognizerWithOptions(
                   hammer,
                   applyManagerOptions(managerOpts, recognizerOpts),
                   element);
-              }
-            } else if (directiveName !== 'hmCustom') {
-              // If no options are supplied, or the supplied options do not
-              // match any of the above conditions, Angular Hammer sets up
-              // the default options that a manager instantiated using
-              // Hammer() would have.
-
-              recognizerOpts = {
-                'type': getRecognizerTypeFromeventName(eventName)
-              };
-
-              if (directiveName === 'hmDoubletap') {
-                recognizerOpts.event = eventName;
-                recognizerOpts.taps = 2;
-
-                if (hammer.get('tap')) {
-                  recognizerOpts.recognizeWith = 'tap';
-                }
+              } else {
+                eventName = null;
               }
 
-              if (recognizerOpts.type.indexOf('pan') > -1 &&
-                  hammer.get('swipe')) {
-                recognizerOpts.recognizeWith = 'swipe';
+              if(eventName) {
+                hammer.on(eventName, handler);
               }
-
-              if (recognizerOpts.type.indexOf('pinch') > -1 &&
-                  hammer.get('rotate')) {
-                recognizerOpts.recognizeWith = 'rotate';
-              }
-
-              setupRecognizerWithOptions(
-                hammer,
-                applyManagerOptions(managerOpts, recognizerOpts),
-                element);
-            } else {
-              eventName = null;
             }
-
-            if (eventName) {
-              hammer.on(eventName, handler);
-            }
-          }
-        };
-      }]);
+          };
+        }
+      ]);
   });
 
+  hmTouchEvents.directive('hmRequireFailure', [
+    '$log', function($log) {
+
+      return {
+        priority: 1000,
+        restrict: 'A',
+        scope: {},
+        link: function(scope, element, attrs) {
+
+          var manager = element.data('hammer'),
+            mapping = angular.fromJson(attrs.hmRequireFailure);
+
+          if(manager) {
+            angular.forEach(mapping, function(requiredEventNames, eventName) {
+
+              // find actual events and filter any that the manager doesn't know about
+              var event = manager.get(eventName),
+                requiredEvents = [].concat(requiredEventNames).map(function(name) {
+                  var event = manager.get(name);
+                  if(!event) {
+                    $log.warn('Event [' + name + '] was not be added to requireFailure for event [' + eventName + ']');
+                  }
+                  return event;
+                }).filter(function(event) {
+                  return event;
+                });
+
+              if(event && requiredEvents.length > 0) {
+                event.requireFailure(requiredEvents);
+              } else {
+                $log.warn('No events where added to requireFailure for event [' + eventName + ']');
+              }
+            });
+          }
+        }
+      }
+    }
+  ]);
   // ---- Private Functions -----
 
   /**
@@ -285,20 +324,20 @@
    * @return {Object} Reference to the new gesture recognizer, if successful,
    *                  null otherwise.
    */
-  function addRecognizer (manager, options) {
-    if (!manager || !options || !options.type) { return null; }
+  function addRecognizer(manager, options) {
+    if(!manager || !options || !options.type) { return null; }
 
     var recognizer;
 
-    if (options.type.indexOf('pan') > -1) {
+    if(options.type.indexOf('pan') > -1) {
       recognizer = new Hammer.Pan(options);
-    } else if (options.type.indexOf('pinch') > -1) {
+    } else if(options.type.indexOf('pinch') > -1) {
       recognizer = new Hammer.Pinch(options);
-    } else if (options.type.indexOf('press') > -1) {
+    } else if(options.type.indexOf('press') > -1) {
       recognizer = new Hammer.Press(options);
-    } else if (options.type.indexOf('rotate') > -1) {
+    } else if(options.type.indexOf('rotate') > -1) {
       recognizer = new Hammer.Rotate(options);
-    } else if (options.type.indexOf('swipe') > -1) {
+    } else if(options.type.indexOf('swipe') > -1) {
       recognizer = new Hammer.Swipe(options);
     } else {
       recognizer = new Hammer.Tap(options);
@@ -315,8 +354,8 @@
    * @param  {Object} recognizerOpts Recognizer options
    * @return None
    */
-  function applyManagerOptions (managerOpts, recognizerOpts) {
-    if (managerOpts) {
+  function applyManagerOptions(managerOpts, recognizerOpts) {
+    if(managerOpts) {
       recognizerOpts.preventGhosts = managerOpts.preventGhosts;
     }
 
@@ -330,16 +369,16 @@
    * @param  {String} eventName Name to derive the recognizer type from
    * @return {string}           Type of recognizer that fires events with that name
    */
-  function getRecognizerTypeFromeventName (eventName) {
-    if (eventName.indexOf('pan') > -1) {
+  function getRecognizerTypeFromeventName(eventName) {
+    if(eventName.indexOf('pan') > -1) {
       return 'pan';
-    } else if (eventName.indexOf('pinch') > -1) {
+    } else if(eventName.indexOf('pinch') > -1) {
       return 'pinch';
-    } else if (eventName.indexOf('press') > -1) {
+    } else if(eventName.indexOf('press') > -1) {
       return 'press';
-    } else if (eventName.indexOf('rotate') > -1) {
+    } else if(eventName.indexOf('rotate') > -1) {
       return 'rotate';
-    } else if (eventName.indexOf('swipe') > -1) {
+    } else if(eventName.indexOf('swipe') > -1) {
       return 'swipe';
     } else {
       return 'tap';
@@ -355,25 +394,25 @@
    * @param  {Object} options Options applied to a recognizer managed by manager
    * @return None
    */
-  function setupRecognizerWithOptions (manager, options, element) {
-    if (!manager || !options) { return; }
+  function setupRecognizerWithOptions(manager, options, element) {
+    if(!manager || !options) { return; }
 
     var recognizer = manager.get(options.type);
 
-    if (!recognizer) {
+    if(!recognizer) {
       recognizer = addRecognizer(manager, options);
     }
 
-    if (!options.directions) {
-      if (options.type === 'pan' || options.type === 'swipe') {
+    if(!options.directions) {
+      if(options.type === 'pan' || options.type === 'swipe') {
         options.directions = 'DIRECTION_ALL';
-      } else if (options.type.indexOf('left') > -1) {
+      } else if(options.type.indexOf('left') > -1) {
         options.directions = 'DIRECTION_LEFT';
-      } else if (options.type.indexOf('right') > -1) {
+      } else if(options.type.indexOf('right') > -1) {
         options.directions = 'DIRECTION_RIGHT';
-      } else if (options.type.indexOf('up') > -1) {
+      } else if(options.type.indexOf('up') > -1) {
         options.directions = 'DIRECTION_UP';
-      } else if (options.type.indexOf('down') > -1) {
+      } else if(options.type.indexOf('down') > -1) {
         options.directions = 'DIRECTION_DOWN';
       } else {
         options.directions = '';
@@ -383,31 +422,31 @@
     options.direction = parseDirections(options.directions);
     recognizer.set(options);
 
-    if (options.recognizeWith) {
-      if (!manager.get(options.recognizeWith)){
-        addRecognizer(manager, {type:options.recognizeWith});
+    if(options.recognizeWith) {
+      if(!manager.get(options.recognizeWith)) {
+        addRecognizer(manager, {type: options.recognizeWith});
       }
 
       recognizer.recognizeWith(manager.get(options.recognizeWith));
     }
 
-    if (options.dropRecognizeWith && manager.get(options.dropRecognizeWith)) {
+    if(options.dropRecognizeWith && manager.get(options.dropRecognizeWith)) {
       recognizer.dropRecognizeWith(manager.get(options.dropRecognizeWith));
     }
 
-    if (options.requireFailure) {
-      if (!manager.get(options.requireFailure)){
-        addRecognizer(manager, {type:options.requireFailure});
+    if(options.requireFailure) {
+      if(!manager.get(options.requireFailure)) {
+        addRecognizer(manager, {type: options.requireFailure});
       }
 
       recognizer.requireFailure(manager.get(options.requireFailure));
     }
 
-    if (options.dropRequireFailure && manager.get(options.dropRequireFailure)) {
+    if(options.dropRequireFailure && manager.get(options.dropRequireFailure)) {
       recognizer.dropRequireFailure(manager.get(options.dropRequireFailure));
     }
 
-    if (options.preventGhosts && element) {
+    if(options.preventGhosts && element) {
       preventGhosts(element);
     }
   }
@@ -419,11 +458,11 @@
    * @param  {String} dirs Direction names separated by '|' characters
    * @return {Number}      Hammer.js direction value
    */
-  function parseDirections (dirs) {
+  function parseDirections(dirs) {
     var directions = 0;
 
-    angular.forEach(dirs.split('|'), function (direction) {
-      if (Hammer.hasOwnProperty(direction)) {
+    angular.forEach(dirs.split('|'), function(direction) {
+      if(Hammer.hasOwnProperty(direction)) {
         directions = directions | Hammer[direction];
       }
     });
@@ -442,14 +481,14 @@
    * https://developers.google.com/mobile/articles/fast_buttons#ghost
    */
 
-  function preventGhosts (element) {
-    if (!element) { return; }
+  function preventGhosts(element) {
+    if(!element) { return; }
 
     var coordinates = [],
-        threshold = 25,
-        timeout = 2500;
+      threshold = 25,
+      timeout = 2500;
 
-    if ('ontouchstart' in window) {
+    if('ontouchstart' in window) {
       element[0].addEventListener('touchstart', resetCoordinates, true);
       element[0].addEventListener('touchend', registerCoordinates, true);
       element[0].addEventListener('click', preventGhostClick, true);
@@ -460,14 +499,14 @@
      * prevent clicks if they're in a registered XY region
      * @param {MouseEvent} ev
      */
-    function preventGhostClick (ev) {
-      for (var i = 0; i < coordinates.length; i++) {
+    function preventGhostClick(ev) {
+      for(var i = 0; i < coordinates.length; i++) {
         var x = coordinates[i][0];
         var y = coordinates[i][1];
 
         // within the range, so prevent the click
-        if (Math.abs(ev.clientX - x) < threshold &&
-            Math.abs(ev.clientY - y) < threshold) {
+        if(Math.abs(ev.clientX - x) < threshold &&
+          Math.abs(ev.clientY - y) < threshold) {
           ev.stopPropagation();
           ev.preventDefault();
           break;
@@ -478,14 +517,14 @@
     /**
      * reset the coordinates array
      */
-    function resetCoordinates () {
+    function resetCoordinates() {
       coordinates = [];
     }
 
     /**
      * remove the first coordinates set from the array
      */
-    function popCoordinates () {
+    function popCoordinates() {
       coordinates.splice(0, 1);
     }
 
@@ -493,7 +532,7 @@
      * if it is an final touchend, we want to register it's place
      * @param {TouchEvent} ev
      */
-    function registerCoordinates (ev) {
+    function registerCoordinates(ev) {
       // touchend is triggered on every releasing finger
       // changed touches always contain the removed touches on a touchend
       // the touches object might contain these also at some browsers (firefox os)
