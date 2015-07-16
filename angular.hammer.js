@@ -352,6 +352,44 @@
       }]);
   });
 
+  hmTouchEvents.directive('hmRequireFailure', [
+    '$log', function($log) {
+
+      return {
+        priority: 1000,
+        restrict: 'A',
+        scope: {},
+        link: function(scope, element, attrs) {
+
+          var manager = element.data('hammer'),
+              mapping = scope.$eval(attrs.hmRequireFailure);
+
+          if(manager) {
+            angular.forEach(mapping, function(requiredEventNames, eventName) {
+
+              // find actual events and filter any that the manager doesn't know about
+              var event = manager.get(eventName),
+                  requiredEvents = [].concat(requiredEventNames).map(function(name) {
+                    var event = manager.get(name);
+                    if(!event) {
+                      $log.warn('Event [' + name + '] was not be added to requireFailure for event [' + eventName + ']');
+                    }
+                    return event;
+                  }).filter(function(event) {
+                    return event;
+                  });
+
+              if(event && requiredEvents.length > 0) {
+                event.requireFailure(requiredEvents);
+              } else {
+                $log.warn('No events where added to requireFailure for event [' + eventName + ']');
+              }
+            });
+          }
+        }
+      }
+    }
+  ]);
   // ---- Private Functions -----
 
   /**
