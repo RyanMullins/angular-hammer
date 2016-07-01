@@ -168,6 +168,6 @@ Example: Defining a Custom Gesture Recognizer
 
 ## Demo
 
-* [Using the default set of recognizers](http://ryanmullins.github.io/angular-hammer/examples/default)
-* [Defining a custom gesture recognizer](http://ryanmullins.github.io/angular-hammer/examples/custom).
-* [Dragging a div around on the screen](http://ryanmullins.github.io/angular-hammer/examples/dragging).
+* [Using the default set of recognizers](http://ryanmullins.github.io/angular-hammer/examples/raw/default)
+* [Defining a custom gesture recognizer](http://ryanmullins.github.io/angular-hammer/examples/raw/custom).
+* [Dragging a div around on the screen](http://ryanmullins.github.io/angular-hammer/examples/raw/dragging).
