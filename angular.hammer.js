@@ -85,7 +85,7 @@
     var managerOpts = {};
 
     //
-    // In order to use the Hamme rpresets provided, we need
+    // In order to use the Hammer presets provided, we need
     // to map the recognizer fn to some name:
     //
     var recognizerFnToName = {};
